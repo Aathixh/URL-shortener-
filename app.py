@@ -3,6 +3,7 @@ import pyshorteners
 from tkinter import messagebox, ttk
 import pyperclip
 import os
+from datetime import datetime
 
 root = tk.Tk()
 root.title("URL Shortener")
@@ -40,12 +41,14 @@ class shortener:
             return
 
         try:
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
             # Save to file
             with open(history_file, "a") as f:
-                f.write(f"{self.long_url} | {self.short_url}\n")
+                f.write(f"{self.long_url} | {self.short_url} | {current_time}\n")
             
             # Update table
-            history_table.insert("", "end", values=(self.long_url, self.short_url))
+            history_table.insert("", "0", values=(self.long_url, self.short_url,current_time))
 
             # Disable save button after saving
             save_button.config(state="disabled")
@@ -69,12 +72,25 @@ class shortener:
             with open(history_file, "r") as f:
                 lines = f.readlines()
                 for line in lines:
-                    long_url, short_url = line.strip().split(" | ")
-                    print(f"Loading URL: {long_url} -> {short_url}")
-                    history_table.insert("", "end", values=(long_url, short_url))
+                    parts = line.strip().split(" | ")
+                    if len(parts) == 3:
+                        long_url, short_url, timestamp = parts
+                    else:
+                        long_url, short_url = parts
+                        timestamp = "Nil"
+                    print(f"Loading URL: {long_url} -> {short_url} at {timestamp}")
+                    history_table.insert("", "0", values=(long_url, short_url, timestamp))
         else:
             print(f"History file not found: {history_file}")
-
+    def copy_selected_url(self, event):
+        selected_item = history_table.selection()
+        if selected_item:
+            item = history_table.item(selected_item)
+            short_url = item['values'][1]
+            pyperclip.copy(short_url)
+            messagebox.showinfo("Copied", f"URL copied to clipboard: {short_url}")
+            
+            
 shortnerObj = shortener()
 
 # Label
@@ -104,18 +120,22 @@ copy_button.pack(pady=10)
 history_frame = tk.Frame(root)
 history_frame.pack(pady=20)
 
-history_table = ttk.Treeview(history_frame, columns=("Long URL", "Short URL"), show="headings", height=6)
+history_table = ttk.Treeview(history_frame, columns=("Long URL", "Short URL","Timestamp"), show="headings", height=8)
 history_table.pack(side="left")
 
 history_table.heading("Long URL", text="Long URL")
 history_table.heading("Short URL", text="Short URL")
+history_table.heading("Timestamp", text="Timestamp")
 history_table.column("Long URL", width=250)
 history_table.column("Short URL", width=150)
-
+history_table.column("Timestamp", width=150)
 # Add a scrollbar to the table
 scrollbar = ttk.Scrollbar(history_frame, orient="vertical", command=history_table.yview)
 scrollbar.pack(side="right", fill="y")
 history_table.config(yscrollcommand=scrollbar.set)
+
+
+history_table.bind("<Double-1>", shortnerObj.copy_selected_url)
 
 # Load history at the start
 shortnerObj.load_history()
